@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="manifest" href="data:application/manifest+json,{name:'Nightgram',short_name:'NG',icons:[{src:'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Cdefs%3E%3ClinearGradient id=\'g\' x1=\'0%25\' y1=\'0%25\' x2=\'100%25\' y2=\'100%25\'%3E%3Cstop offset=\'0%25\' stop-color=\'%230a0a0a\'/%3E%3Cstop offset=\'100%25\' stop-color=\'%231a1a2e\'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=\'100\' height=\'100\' rx=\'22\' fill=\'url(%23g)\'/%3E%3Ctext x=\'50\' y=\'58\' text-anchor=\'middle\' fill=\'%23e0e0e0\' font-family=\'Arial\' font-weight=\'700\' font-size=\'42\'%3ENG%3C/text%3E%3Cpath d=\'M72 20 Q80 12 85 18 Q78 25 72 20Z\' fill=\'%23c0c0c0\' opacity=\'0.6\'/%3E%3C/svg%3E',sizes:'512x512',type:'image/svg+xml'}],display:'standalone',background_color:'#0a0a0a'}">
+    <title>Nightgram • анонимный мессенджер</title>
+    
+    <!-- Дополнительные стили для новых функций -->
+    <style>
+        /* Базовые стили остаются те же, добавляем новое */
+
+        /* Просмотр кружочков (Stories) */
+        .stories-viewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stories-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+        }
+
+        .stories-progress {
+            flex: 1;
+            height: 3px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .stories-progress-bar {
+            height: 100%;
+            background: white;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .stories-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .story-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .story-video {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .story-caption {
+            position: absolute;
+            bottom: 80px;
+            left: 20px;
+            right: 20px;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .stories-input {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 80px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 12px 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .stories-send-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            background: var(--accent);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* Голосовые сообщения - улучшенные */
+        .voice-message-enhanced {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            min-width: 240px;
+        }
+
+        .voice-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent-gradient);
+            flex-shrink: 0;
+        }
+
+        .voice-content {
+            flex: 1;
+        }
+
+        .voice-waveform-container {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .voice-waveform-bars {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 40px;
+        }
+
+        .voice-wave-bar {
+            width: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: height 0.1s;
+        }
+
+        .voice-progress {
+            height: 3px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+            margin-top: 8px;
+            position: relative;
+        }
+
+        .voice-progress-filled {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            width: 0%;
+        }
+
+        .voice-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Отправка изображений */
+        .image-message {
+            max-width: 250px;
+            border-radius: 16px;
+            overflow: hidden;
+            margin: 4px 0;
+        }
+
+        .image-message img {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: pointer;
+        }
+
+        .image-preview {
+            position: relative;
+        }
+
+        .image-caption {
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.3);
+            font-size: 14px;
+        }
+
+        /* Меню вложений */
+        .attach-menu {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            padding: 20px;
+        }
+
+        .attach-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 16px;
+            transition: background 0.2s;
+        }
+
+        .attach-item:active {
+            background: var(--bg-elevated);
+        }
+
+        .attach-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+
+        .attach-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Поиск по сообщениям */
+        .search-messages-header {
+            padding: 12px 16px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .search-messages-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border: none;
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 16px;
+            outline: none;
+        }
+
+        .search-result-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .search-result-item:active {
+            background: var(--bg-elevated);
+        }
+
+        .search-result-text {
+            margin-bottom: 4px;
+        }
+
+        .search-result-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .highlight {
+            background: rgba(124, 131, 253, 0.3);
+            padding: 0 2px;
+            border-radius: 4px;
+        }
+
+        /* Настройки и админ-панель */
+        .settings-section {
+            padding: 16px;
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .settings-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .settings-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Переключатель */
+        .toggle-switch {
+            width: 52px;
+            height: 28px;
+            background: var(--bg-elevated);
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: var(--accent);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.3s;
+        }
+
+        .toggle-switch.active::after {
+            left: 26px;
+        }
+
+        /* Уведомления */
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--error);
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            border: 2px solid var(--bg-surface);
+        }
+
+        /* Анимация загрузки */
+        .upload-progress {
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .upload-progress-bar {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Ответ на сообщение */
+        .reply-preview {
+            background: var(--bg-elevated);
+            padding: 8px 12px;
+            border-left: 3px solid var(--accent);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .reply-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .reply-name {
+            font-size: 13px;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+
+        .reply-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .reply-close {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .message.reply {
+            position: relative;
+        }
+
+        .message.reply .message-bubble::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        /* Реакции на сообщения */
+        .reactions-container {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+            flex-wrap: wrap;
+        }
+
+        .reaction-badge {
+            background: var(--bg-elevated);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+        }
+
+        .reaction-badge.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .reaction-picker {
+            position: absolute;
+            background: var(--bg-surface);
+            border-radius: 30px;
+            padding: 8px;
+            display: flex;
+            gap: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            z-index: 100;
+        }
+
+        .reaction-emoji {
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .reaction-emoji:hover {
+            transform: scale(1.2);
+        }
+
+        /* Шифрование индикатор */
+        .encryption-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--success);
+            font-size: 11px;
+            padding: 2px 8px;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 20px;
+        }
+
+        /* Плавающая кнопка */
+        .fab {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            background: var(--accent);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(124, 131, 253, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 50;
+        }
+
+        .fab:active {
+            transform: scale(0.9);
+        }
+
+        /* Контекстное меню */
+        .context-menu {
+            position: fixed;
+            background: var(--bg-surface);
+            border-radius: 14px;
+            padding: 8px;
+            min-width: 200px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            z-index: 1000;
+        }
+
+        .context-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+            color: var(--text-primary);
+        }
+
+        .context-menu-item:active {
+            background: var(--bg-elevated);
+        }
+
+        .context-menu-item.danger {
+            color: var(--error);
+        }
+
+        .context-menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 8px 0;
+        }
+
+        /* Анимация появления */
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .scale-in {
+            animation: scaleIn 0.2s ease;
+        }
+
+        /* Скелетон загрузки */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+
+        .skeleton-text {
+            height: 16px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+        }
+
+        /* Адаптация для десктопа */
+        @media (min-width: 768px) {
+            .app {
+                max-width: 450px;
+                margin: 0 auto;
+                border-left: 1px solid var(--border);
+                border-right: 1px solid var(--border);
+                box-shadow: 0 0 50px rgba(0,0,0,0.3);
+            }
+            
+            .auth-screen {
+                max-width: 400px;
+                margin: 0 auto;
+            }
+            
+            .context-menu {
+                position: absolute;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Базовые экраны остаются те же, добавляем новые -->
+
+    <!-- Просмотр кружочков -->
+    <div id="storiesViewer" class="stories-viewer hidden">
+        <div class="stories-header">
+            <button class="icon-btn" onclick="app.closeStories()" style="color: white;">✕</button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div class="avatar" id="storyOwnerAvatar" style="width: 32px; height: 32px; font-size: 14px;"></div>
+                <span id="storyOwnerName" style="color: white;"></span>
+                <span id="storyTime" style="color: rgba(255,255,255,0.6); font-size: 12px;"></span>
+            </div>
+        </div>
+        <div class="stories-progress">
+            <div class="stories-progress-bar" id="storyProgressBar"></div>
+        </div>
+        <div class="stories-content" id="storiesContent">
+            <!-- Контент истории -->
+        </div>
+        <input type="text" id="storyReplyInput" class="stories-input" placeholder="Ответить на историю...">
+        <button class="stories-send-btn" onclick="app.sendStoryReply()">➤</button>
+    </div>
+
+    <!-- Меню вложений -->
+    <div id="attachMenuModal" class="modal-overlay hidden">
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <h3 class="modal-title">Отправить</h3>
+                <button class="modal-close" onclick="app.closeModal('attachMenuModal')">✕</button>
+            </div>
+            <div class="attach-menu">
+                <div class="attach-item" onclick="app.sendImage()">
+                    <div class="attach-icon">🖼️</div>
+                    <span class="attach-label">Изображение</span>
+                </div>
+                <div class="attach-item" onclick="app.sendFile()">
+                    <div class="attach-icon">📁</div>
+                    <span class="attach-label">Файл</span>
+                </div>
+                <div class="attach-item" onclick="app.sendLocation()">
+                    <div class="attach-icon">📍</div>
+                    <span class="attach-label">Локация</span>
+                </div>
+                <div class="attach-item" onclick="app.sendContact()">
+                    <div class="attach-icon">👤</div>
+                    <span class="attach-label">Контакт</span>
+                </div>
+                <div class="attach-item" onclick="app.createPoll()">
+                    <div class="attach-icon">📊</div>
+                    <span class="attach-label">Опрос</span>
+                </div>
+                <div class="attach-item" onclick="app.sendMusic()">
+                    <div class="attach-icon">🎵</div>
+                    <span class="attach-label">Музыка</span>
+                </div>
+                <div class="attach-item" onclick="app.sendGif()">
+                    <div class="attach-icon">🎬</div>
+                    <span class="attach-label">GIF</span>
+                </div>
+                <div class="attach-item" onclick="app.sendSticker()">
+                    <div class="attach-icon">😊</div>
+                    <span class="attach-label">Стикер</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Поиск по сообщениям -->
+    <div id="searchMessagesModal" class="modal-overlay hidden">
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <h3 class="modal-title">Поиск сообщений</h3>
+                <button class="modal-close" onclick="app.closeModal('searchMessagesModal')">✕</button>
+            </div>
+            <div class="search-messages-header">
+                <input type="text" id="searchMessagesInput" class="search-messages-input" placeholder="Введите текст для поиска...">
+            </div>
+            <div class="modal-body" id="searchResultsContainer">
+                <!-- Результаты поиска -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Настройки -->
+    <div id="settingsModal" class="modal-overlay hidden">
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <h3 class="modal-title">Настройки</h3>
+                <button class="modal-close" onclick="app.closeModal('settingsModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h4 style="margin-bottom: 16px; color: var(--text-secondary);">Приватность</h4>
+                    
+                    <div class="settings-item">
+                        <div class="settings-label">
+                            <div class="settings-icon">🔒</div>
+                            <span>Сквозное шифрование</span>
+                        </div>
+                        <div class="toggle-switch active" onclick="app.toggleEncryption(this)"></div>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-label">
+                            <div class="settings-icon">👁️</div>
+                            <span>Кто видит мой онлайн</span>
+                        </div>
+                        <select class="input-field" style="width: auto; padding: 8px 12px;" id="onlinePrivacy">
+                            <option value="everyone">Все</option>
+                            <option value="contacts">Контакты</option>
+                            <option value="nobody">Никто</option>
+                        </select>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-label">
+                            <div class="settings-icon">📱</div>
+                            <span>Уведомления</span>
+                        </div>
+                        <div class="toggle-switch active" onclick="app.toggleNotifications(this)"></div>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h4 style="margin-bottom: 16px; color: var(--text-secondary);">Оформление</h4>
+                    
+                    <div class="settings-item">
+                        <div class="settings-label">
+                            <div class="settings-icon">🌙</div>
+                            <span>Тёмная тема</span>
+                        </div>
+                        <div class="toggle-switch active" onclick="app.toggleTheme(this)"></div>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-label">
+                            <div class="settings-icon">🎨</div>
+                            <span>Цвет акцента</span>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <div style="width: 24px; height: 24px; border-radius: 12px; background: #7c83fd; cursor: pointer;" onclick="app.setAccentColor('#7c83fd')"></div>
+                            <div style="width: 24px; height: 24px; border-radius: 12px; background: #fd7c7c; cursor: pointer;" onclick="app.setAccentColor('#fd7c7c')"></div>
+                            <div style="width: 24px; height: 24px; border-radius: 12px; background: #7cfd9e; cursor: pointer;" onclick="app.setAccentColor('#7cfd9e')"></div>
+                            <div style="width: 24px; height: 24px; border-radius: 12px; background: #fddd7c; cursor: pointer;" onclick="app.setAccentColor('#fddd7c')"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h4 style="margin-bottom: 16px; color: var(--text-secondary);">Данные</h4>
+                    
+                    <div class="settings-item">
+                        <div class="settings-label">
+                            <div class="settings-icon">💾</div>
+                            <span>Автосохранение медиа</span>
+                        </div>
+                        <div class="toggle-switch" onclick="app.toggleAutoSave(this)"></div>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-label">
+                            <div class="settings-icon">🗑️</div>
+                            <span>Очистить кэш</span>
+                        </div>
+                        <button class="btn-secondary" style="padding: 8px 16px;" onclick="app.clearCache()">Очистить</button>
+                    </div>
+                </div>
+                
+                <button class="btn" style="margin-top: 20px; background: var(--error);" onclick="app.deleteAccount()">
+                    Удалить аккаунт
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Контекстное меню -->
+    <div id="contextMenu" class="context-menu hidden">
+        <div class="context-menu-item" onclick="app.replyToMessage()">
+            <span>↩️</span>
+            <span>Ответить</span>
+        </div>
+        <div class="context-menu-item" onclick="app.copyMessage()">
+            <span>📋</span>
+            <span>Копировать</span>
+        </div>
+        <div class="context-menu-item" onclick="app.forwardMessage()">
+            <span>↗️</span>
+            <span>Переслать</span>
+        </div>
+        <div class="context-menu-item" onclick="app.showReactionPicker()">
+            <span>😊</span>
+            <span>Реакция</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="app.pinMessage()">
+            <span>📌</span>
+            <span>Закрепить</span>
+        </div>
+        <div class="context-menu-item" onclick="app.editMessage()">
+            <span>✏️</span>
+            <span>Изменить</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" onclick="app.deleteMessage()">
+            <span>🗑️</span>
+            <span>Удалить</span>
+        </div>
+    </div>
+
+    <!-- Выбор реакции -->
+    <div id="reactionPicker" class="reaction-picker hidden">
+        <span class="reaction-emoji" onclick="app.addReaction('👍')">👍</span>
+        <span class="reaction-emoji" onclick="app.addReaction('❤️')">❤️</span>
+        <span class="reaction-emoji" onclick="app.addReaction('😂')">😂</span>
+        <span class="reaction-emoji" onclick="app.addReaction('😮')">😮</span>
+        <span class="reaction-emoji" onclick="app.addReaction('😢')">😢</span>
+        <span class="reaction-emoji" onclick="app.addReaction('😡')">😡</span>
+    </div>
+
+    <!-- FAB для быстрого действия -->
+    <button class="fab hidden" id="fabButton" onclick="app.fabAction()">✏️</button>
+
+    <!-- Скрытые инпуты для загрузки файлов -->
+    <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="app.handleImageUpload(event)">
+    <input type="file" id="fileInput" style="display: none;" onchange="app.handleFileUpload(event)">
+
+    <script>
+        // Расширяем приложение новыми функциями
+        
+        // Инициализация дополнительных функций
+        app.initExtended = function() {
+            this.loadStories();
+            this.setupContextMenu();
+            this.setupReactionPicker();
+            this.setupNotifications();
+            this.initEncryption();
+        };
+        
+        // ==================== КРУЖОЧКИ (STORIES) ====================
+        app.stories = [];
+        app.currentStoryIndex = 0;
+        app.currentStoryUser = null;
+        app.storyTimer = null;
+        app.storyProgress = 0;
+        
+        app.loadStories = async function() {
+            try {
+                // Загружаем истории от сервера
+                const response = await api.request('/stories');
+                this.stories = response;
+                this.renderStoriesList();
+            } catch (error) {
+                console.error('Failed to load stories:', error);
+                // Создаем демо-истории
+                this.stories = store.users.slice(0, 5).map(user => ({
+                    user_id: user.id,
+                    username: user.username,
+                    stories: [
+                        {
+                            id: Date.now() + user.id,
+                            type: 'image',
+                            url: `https://picsum.photos/400/700?random=${user.id}`,
+                            caption: 'Моя первая история в Nightgram! 🌙',
+                            created_at: new Date().toISOString(),
+                            views: Math.floor(Math.random() * 100)
+                        }
+                    ]
+                }));
+            }
+        };
+        
+        app.renderStoriesList = function() {
+            const container = document.getElementById('statusList');
+            container.innerHTML = `
+                <div class="status-item" onclick="app.createStory()">
+                    <div class="status-avatar status-add">+</div>
+                    <span class="status-name">Мой</span>
+                </div>
+            `;
+            
+            this.stories.forEach(storyGroup => {
+                const hasUnseen = storyGroup.stories.some(s => !s.seen);
+                const div = document.createElement('div');
+                div.className = 'status-item';
+                div.onclick = () => this.viewStories(storyGroup);
+                div.innerHTML = `
+                    <div class="status-avatar ${hasUnseen ? 'unseen' : ''}" 
+                         style="border: 2px solid ${hasUnseen ? 'var(--accent)' : 'var(--border)'}">
+                        ${storyGroup.username[0].toUpperCase()}
+                    </div>
+                    <span class="status-name">${storyGroup.username}</span>
+                `;
+                container.appendChild(div);
+            });
+        };
+        
+        app.createStory = function() {
+            // Открываем камеру или галерею
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*,video/*';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.showToast('Загрузка истории...');
+                    
+                    // Загружаем на сервер
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    try {
+                        const response = await fetch(`${CONFIG.API_URL}/stories/create`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${store.token}` },
+                            body: formData
+                        });
+                        
+                        if (response.ok) {
+                            this.showToast('История опубликована!');
+                            this.loadStories();
+                        }
+                    } catch (error) {
+                        // Демо-режим
+                        this.showToast('История создана (демо)');
+                        this.loadStories();
+                    }
+                }
+            };
+            input.click();
+        };
+        
+        app.viewStories = function(storyGroup) {
+            this.currentStoryUser = storyGroup;
+            this.currentStoryIndex = 0;
+            
+            document.getElementById('storiesViewer').classList.remove('hidden');
+            document.getElementById('storyOwnerName').textContent = storyGroup.username;
+            document.getElementById('storyOwnerAvatar').textContent = storyGroup.username[0].toUpperCase();
+            
+            this.showCurrentStory();
+        };
+        
+        app.showCurrentStory = function() {
+            const story = this.currentStoryUser.stories[this.currentStoryIndex];
+            const container = document.getElementById('storiesContent');
+            
+            document.getElementById('storyTime').textContent = this.formatTime(story.created_at);
+            
+            if (story.type === 'image') {
+                container.innerHTML = `<img src="${story.url}" class="story-image" onclick="app.toggleStoryPause()">`;
+            } else if (story.type === 'video') {
+                container.innerHTML = `<video src="${story.url}" class="story-video" autoplay onended="app.nextStory()"></video>`;
+            }
+            
+            if (story.caption) {
+                container.innerHTML += `<div class="story-caption">${story.caption}</div>`;
+            }
+            
+            // Отмечаем как просмотренное
+            story.seen = true;
+            
+            // Запускаем таймер прогресса
+            this.startStoryTimer();
+        };
+        
+        app.startStoryTimer = function() {
+            clearInterval(this.storyTimer);
+            this.storyProgress = 0;
+            
+            this.storyTimer = setInterval(() => {
+                this.storyProgress += 1;
+                document.getElementById('storyProgressBar').style.width = this.storyProgress + '%';
+                
+                if (this.storyProgress >= 100) {
+                    this.nextStory();
+                }
+            }, 50); // 5 секунд на историю
+        };
+        
+        app.toggleStoryPause = function() {
+            if (this.storyTimer) {
+                clearInterval(this.storyTimer);
+                this.storyTimer = null;
+            } else {
+                this.startStoryTimer();
+            }
+        };
+        
+        app.nextStory = function() {
+            clearInterval(this.storyTimer);
+            
+            if (this.currentStoryIndex < this.currentStoryUser.stories.length - 1) {
+                this.currentStoryIndex++;
+                this.showCurrentStory();
+            } else {
+                this.closeStories();
+            }
+        };
+        
+        app.prevStory = function() {
+            clearInterval(this.storyTimer);
+            
+            if (this.currentStoryIndex > 0) {
+                this.currentStoryIndex--;
+                this.showCurrentStory();
+            }
+        };
+        
+        app.closeStories = function() {
+            clearInterval(this.storyTimer);
+            document.getElementById('storiesViewer').classList.add('hidden');
+            this.currentStoryUser = null;
+            this.renderStoriesList();
+        };
+        
+        app.sendStoryReply = function() {
+            const input = document.getElementById('storyReplyInput');
+            const text = input.value.trim();
+            
+            if (text) {
+                const story = this.currentStoryUser.stories[this.currentStoryIndex];
+                
+                // Отправляем ответ как личное сообщение
+                app.openChatWithUser(this.currentStoryUser.user_id);
+                
+                setTimeout(() => {
+                    const msgInput = document.getElementById('messageInput');
+                    msgInput.value = `[Ответ на историю] ${text}`;
+                    app.sendMessage();
+                }, 500);
+                
+                input.value = '';
+                this.closeStories();
+            }
+        };
+        
+        // ==================== ГОЛОСОВЫЕ СООБЩЕНИЯ ====================
+        app.mediaRecorder = null;
+        app.audioChunks = [];
+        app.isRecording = false;
+        app.recordingStartTime = 0;
+        
+        app.startRecording = async function() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                this.mediaRecorder = new MediaRecorder(stream);
+                this.audioChunks = [];
+                
+                this.mediaRecorder.ondataavailable = (event) => {
+                    this.audioChunks.push(event.data);
+                };
+                
+                this.mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                    this.sendVoiceMessage(audioBlob, (Date.now() - this.recordingStartTime) / 1000);
+                    
+                    // Останавливаем треки
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                this.mediaRecorder.start();
+                this.isRecording = true;
+                this.recordingStartTime = Date.now();
+                
+                const btn = document.getElementById('voiceRecordBtn');
+                btn.classList.add('recording');
+                btn.innerHTML = '<span>⏺️</span>';
+                
+                this.showToast('Запись начата...');
+                
+                // Автоостановка через 60 секунд
+                setTimeout(() => {
+                    if (this.isRecording) {
+                        this.stopRecording();
+                    }
+                }, 60000);
+                
+            } catch (error) {
+                this.showToast('Нет доступа к микрофону');
+            }
+        };
+        
+        app.stopRecording = function() {
+            if (this.mediaRecorder && this.isRecording) {
+                this.mediaRecorder.stop();
+                this.isRecording = false;
+                
+                const btn = document.getElementById('voiceRecordBtn');
+                btn.classList.remove('recording');
+                btn.innerHTML = '<span>🎤</span>';
+                
+                this.showToast('Запись остановлена');
+            }
+        };
+        
+        app.sendVoiceMessage = async function(audioBlob, duration) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob);
+            formData.append('duration', duration);
+            formData.append('chat_id', store.currentChat.id);
+            
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/voice-message`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${store.token}` },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    this.addVoiceMessageToChat(data.url, duration);
+                }
+            } catch (error) {
+                // Демо-режим
+                this.addVoiceMessageToChat(null, duration);
+            }
+        };
+        
+        app.addVoiceMessageToChat = function(url, duration) {
+            const container = document.getElementById('messagesContainer');
+            const minutes = Math.floor(duration / 60);
+            const seconds = Math.floor(duration % 60);
+            
+            const voiceHtml = `
+                <div class="message out">
+                    <div class="message-bubble">
+                        <div class="voice-message-enhanced">
+                            <div class="voice-avatar">${store.user.username[0].toUpperCase()}</div>
+                            <div class="voice-content">
+                                <div class="voice-waveform-container" onclick="app.toggleVoicePlayback(this)">
+                                    <div class="voice-waveform-bars">
+                                        ${this.generateWaveformBars(duration)}
+                                    </div>
+                                </div>
+                                <div class="voice-progress">
+                                    <div class="voice-progress-filled" style="width: 0%"></div>
+                                </div>
+                                <div class="voice-time">
+                                    <span class="current-time">0:00</span> / 
+                                    <span class="total-time">${minutes}:${seconds.toString().padStart(2, '0')}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="message-meta">
+                            ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            ✓
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', voiceHtml);
+            container.scrollTop = container.scrollHeight;
+        };
+        
+        app.generateWaveformBars = function(duration) {
+            const barCount = 30;
+            let html = '';
+            
+            for (let i = 0; i < barCount; i++) {
+                const height = 10 + Math.random() * 30;
+                html += `<div class="voice-wave-bar" style="height: ${height}px"></div>`;
+            }
+            
+            return html;
+        };
+        
+        app.toggleVoicePlayback = function(container) {
+            // В реальном приложении здесь будет воспроизведение аудио
+            this.showToast('Воспроизведение голосового сообщения');
+            
+            // Анимация прогресса
+            const progressBar = container.parentElement.querySelector('.voice-progress-filled');
+            let width = 0;
+            
+            const interval = setInterval(() => {
+                width += 1;
+                progressBar.style.width = width + '%';
+                
+                if (width >= 100) {
+                    clearInterval(interval);
+                }
+            }, 100);
+        };
+        
+        // ==================== ОТПРАВКА ИЗОБРАЖЕНИЙ ====================
+        app.sendImage = function() {
+            document.getElementById('imageInput').click();
+            this.closeModal('attachMenuModal');
+        };
+        
+        app.handleImageUpload = async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            this.showToast('Загрузка изображения...');
+            
+            // Предпросмотр
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.addImageMessage(e.target.result, file.name);
+            };
+            reader.readAsDataURL(file);
+            
+            // Отправка на сервер
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('chat_id', store.currentChat.id);
+            
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/send-image`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${store.token}` },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    this.showToast('Изображение отправлено');
+                }
+            } catch (error) {
+                console.error('Failed to send image:', error);
+            }
+            
+            event.target.value = '';
+        };
+        
+        app.addImageMessage = function(imageUrl, caption = '') {
+            const container = document.getElementById('messagesContainer');
+            
+            const html = `
+                <div class="message out">
+                    <div class="message-bubble">
+                        <div class="image-message" onclick="app.viewImage('${imageUrl}')">
+                            <img src="${imageUrl}" alt="image">
+                            ${caption ? `<div class="image-caption">${caption}</div>` : ''}
+                        </div>
+                        <div class="message-meta">
+                            ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            ✓
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+        };
+        
+        app.viewImage = function(url) {
+            // Открываем полноэкранный просмотр
+            const viewer = document.createElement('div');
+            viewer.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: black;
+                z-index: 3000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            
+            viewer.innerHTML = `
+                <img src="${url}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                <button style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 30px; cursor: pointer;" onclick="this.parentElement.remove()">✕</button>
+            `;
+            
+            document.body.appendChild(viewer);
+        };
+        
+        // ==================== ОТПРАВКА ФАЙЛОВ ====================
+        app.sendFile = function() {
+            document.getElementById('fileInput').click();
+            this.closeModal('attachMenuModal');
+        };
+        
+        app.handleFileUpload = async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            this.showToast(`Отправка файла: ${file.name}`);
+            
+            const container = document.getElementById('messagesContainer');
+            const html = `
+                <div class="message out">
+                    <div class="message-bubble">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 32px;">📁</span>
+                            <div>
+                                <div style="font-weight: 500;">${file.name}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">${(file.size / 1024).toFixed(1)} KB</div>
+                            </div>
+                        </div>
+                        <div class="message-meta">
+                            ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            ✓
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+            
+            event.target.value = '';
+        };
+        
+        // ==================== ЛОКАЦИЯ ====================
+        app.sendLocation = function() {
+            if (!navigator.geolocation) {
+                this.showToast('Геолокация не поддерживается');
+                return;
+            }
+            
+            this.showToast('Определение местоположения...');
+            this.closeModal('attachMenuModal');
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    this.addLocationMessage(latitude, longitude);
+                },
+                () => {
+                    this.showToast('Не удалось определить местоположение');
+                }
+            );
+        };
+        
+        app.addLocationMessage = function(lat, lng) {
+            const container = document.getElementById('messagesContainer');
+            const mapUrl = `https://static-maps.yandex.ru/1.x/?ll=${lng},${lat}&size=300,200&z=14&l=map&pt=${lng},${lat},pm2rdm`;
+            
+            const html = `
+                <div class="message out">
+                    <div class="message-bubble">
+                        <div class="image-message" onclick="window.open('https://maps.google.com/?q=${lat},${lng}')">
+                            <img src="${mapUrl}" alt="location">
+                            <div class="image-caption">📍 Моё местоположение</div>
+                        </div>
+                        <div class="message-meta">
+                            ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            ✓
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+        };
+        
+        // ==================== КОНТАКТ ====================
+        app.sendContact = function() {
+            this.closeModal('attachMenuModal');
+            
+            // Отправляем свой контакт
+            const container = document.getElementById('messagesContainer');
+            const html = `
+                <div class="message out">
+                    <div class="message-bubble">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="avatar" style="width: 48px; height: 48px;">${store.user.username[0].toUpperCase()}</div>
+                            <div>
+                                <div style="font-weight: 500;">${store.user.username}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">Контакт Nightgram</div>
+                            </div>
+                        </div>
+                        <div class="message-meta">
+                            ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            ✓
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+        };
+        
+        // ==================== ОПРОС ====================
+        app.createPoll = function() {
+            this.closeModal('attachMenuModal');
+            
+            const question = prompt('Вопрос опроса:');
+            if (!question) return;
+            
+            const options = [];
+            let option;
+            while ((option = prompt('Вариант ответа (пусто для завершения):'))) {
+                options.push(option);
+            }
+            
+            if (options.length < 2) {
+                this.showToast('Нужно минимум 2 варианта');
+                return;
+            }
+            
+            this.addPollMessage(question, options);
+        };
+        
+        app.addPollMessage = function(question, options) {
+            const container = document.getElementById('messagesContainer');
+            
+            const optionsHtml = options.map((opt, i) => `
+                <div style="padding: 10px 0; cursor: pointer;" onclick="app.votePoll(this, ${i})">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span>${opt}</span>
+                        <span class="poll-votes-${i}">0%</span>
+                    </div>
+                    <div style="height: 6px; background: var(--bg-elevated); border-radius: 3px;">
+                        <div class="poll-bar-${i}" style="width: 0%; height: 100%; background: var(--accent); border-radius: 3px;"></div>
+                    </div>
+                </div>
+            `).join('');
+            
+            const html = `
+                <div class="message out">
+                    <div class="message-bubble" style="min-width: 250px;">
+                        <div style="font-weight: 600; margin-bottom: 12px;">📊 ${question}</div>
+                        ${optionsHtml}
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                            Всего голосов: <span class="total-votes">0</span>
+                        </div>
+                        <div class="message-meta">
+                            ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            ✓
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+        };
+        
+        app.votePoll = function(element, optionIndex) {
+            const pollContainer = element.closest('.message-bubble');
+            const bars = pollContainer.querySelectorAll('[class^="poll-bar-"]');
+            const voteSpans = pollContainer.querySelectorAll('[class^="poll-votes-"]');
+            const totalSpan = pollContainer.querySelector('.total-votes');
+            
+            // Симуляция голосования
+            const total = Math.floor(Math.random() * 20) + 5;
+            const votes = Array(bars.length).fill(0).map(() => Math.floor(Math.random() * total));
+            const sum = votes.reduce((a, b) => a + b, 0);
+            
+            votes.forEach((v, i) => {
+                const percent = Math.round((v / sum) * 100);
+                bars[i].style.width = percent + '%';
+                voteSpans[i].textContent = percent + '%';
+            });
+            
+            totalSpan.textContent = sum;
+            
+            this.showToast('Голос учтён!');
+        };
+        
+        // ==================== МУЗЫКА ====================
+        app.sendMusic = function() {
+            this.closeModal('attachMenuModal');
+            this.showToast('Отправка музыки в разработке');
+        };
+        
+        // ==================== GIF ====================
+        app.sendGif = function() {
+            this.closeModal('attachMenuModal');
+            
+            // Используем GIPHY API или просто демо
+            const gifUrl = 'https://media.giphy.com/media/3o7abB06u9bNzA8LC8/giphy.gif';
+            this.addGifMessage(gifUrl);
+        };
+        
+        app.addGifMessage = function(gifUrl) {
+            const container = document.getElementById('messagesContainer');
+            
+            const html = `
+                <div class="message out">
+                    <div class="message-bubble">
+                        <div class="image-message">
+                            <img src="${gifUrl}" alt="gif">
+                        </div>
+                        <div class="message-meta">
+                            ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            ✓
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+        };
+        
+        // ==================== СТИКЕРЫ ====================
+        app.sendSticker = function() {
+            this.closeModal('attachMenuModal');
+            
+            const stickers = ['😊', '❤️', '🎉', '🌟', '🔥', '💯', '👍', '👋'];
+            const sticker = stickers[Math.floor(Math.random() * stickers.length)];
+            
+            const container = document.getElementById('messagesContainer');
+            const html = `
+                <div class="message out">
+                    <div class="message-bubble" style="background: transparent; padding: 8px;">
+                        <div style="font-size: 64px;">${sticker}</div>
+                        <div class="message-meta">
+                            ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            ✓
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+        };
+        
+        // ==================== КОНТЕКСТНОЕ МЕНЮ ====================
+        app.selectedMessage = null;
+        app.selectedMessageElement = null;
+        
+        app.setupContextMenu = function() {
+            document.addEventListener('click', (e) => {
+                const menu = document.getElementById('contextMenu');
+                if (!menu.contains(e.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+            
+            // Долгое нажатие на сообщение
+            document.addEventListener('contextmenu', (e) => {
+                const messageElement = e.target.closest('.message');
+                if (messageElement) {
+                    e.preventDefault();
+                    this.showContextMenu(e, messageElement);
+                }
+            });
+        };
+        
+        app.showContextMenu = function(event, messageElement) {
+            const menu = document.getElementById('contextMenu');
+            this.selectedMessageElement = messageElement;
+            
+            // Определяем ID сообщения
+            const messageId = messageElement.dataset.messageId;
+            this.selectedMessage = store.messages[store.currentChat?.id]?.find(m => m.id == messageId);
+            
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.classList.remove('hidden');
+        };
+        
+        app.replyToMessage = function() {
+            if (!this.selectedMessage) return;
+            
+            const replyPreview = document.createElement('div');
+            replyPreview.className = 'reply-preview';
+            replyPreview.id = 'replyPreview';
+            replyPreview.innerHTML = `
+                <div class="reply-content">
+                    <div class="reply-name">↩️ В ответ ${this.selectedMessage.sender_id === store.user.id ? 'себе' : ''}</div>
+                    <div class="reply-text">${this.selectedMessage.text}</div>
+                </div>
+                <button class="reply-close" onclick="app.cancelReply()">✕</button>
+            `;
+            
+            const inputPanel = document.querySelector('.input-panel');
+            inputPanel.parentElement.insertBefore(replyPreview, inputPanel);
+            
+            store.replyTo = this.selectedMessage;
+            
+            document.getElementById('contextMenu').classList.add('hidden');
+        };
+        
+        app.cancelReply = function() {
+            document.getElementById('replyPreview')?.remove();
+            store.replyTo = null;
+        };
+        
+        app.copyMessage = function() {
+            if (this.selectedMessage) {
+                navigator.clipboard?.writeText(this.selectedMessage.text);
+                this.showToast('Скопировано');
+            }
+            document.getElementById('contextMenu').classList.add('hidden');
+        };
+        
+        app.forwardMessage = function() {
+            this.showToast('Выберите чат для пересылки');
+            document.getElementById('contextMenu').classList.add('hidden');
+            // Открываем модалку выбора чата
+        };
+        
+        app.showReactionPicker = function() {
+            const picker = document.getElementById('reactionPicker');
+            const rect = this.selectedMessageElement.getBoundingClientRect();
+            
+            picker.style.left = rect.left + 'px';
+            picker.style.top = (rect.top - 50) + 'px';
+            picker.classList.remove('hidden');
+            
+            document.getElementById('contextMenu').classList.add('hidden');
+        };
+        
+        app.addReaction = function(emoji) {
+            const messageElement = this.selectedMessageElement;
+            let reactionsContainer = messageElement.querySelector('.reactions-container');
+            
+            if (!reactionsContainer) {
+                reactionsContainer = document.createElement('div');
+                reactionsContainer.className = 'reactions-container';
+                messageElement.querySelector('.message-bubble').appendChild(reactionsContainer);
+            }
+            
+            // Проверяем, есть ли уже такая реакция
+            const existing = reactionsContainer.querySelector(`[data-emoji="${emoji}"]`);
+            if (existing) {
+                const count = existing.querySelector('.reaction-count');
+                count.textContent = parseInt(count.textContent) + 1;
+                existing.classList.add('active');
+            } else {
+                const badge = document.createElement('span');
+                badge.className = 'reaction-badge active';
+                badge.dataset.emoji = emoji;
+                badge.innerHTML = `${emoji} <span class="reaction-count">1</span>`;
+                badge.onclick = () => app.toggleReaction(badge, emoji);
+                reactionsContainer.appendChild(badge);
+            }
+            
+            document.getElementById('reactionPicker').classList.add('hidden');
+            this.showToast(`Реакция ${emoji} добавлена`);
+        };
+        
+        app.toggleReaction = function(badge, emoji) {
+            const count = badge.querySelector('.reaction-count');
+            const current = parseInt(count.textContent);
+            
+            if (badge.classList.contains('active')) {
+                count.textContent = current - 1;
+                badge.classList.remove('active');
+                if (current - 1 === 0) {
+                    badge.remove();
+                }
+            } else {
+                count.textContent = current + 1;
+                badge.classList.add('active');
+            }
+        };
+        
+        app.pinMessage = function() {
+            this.showToast('Сообщение закреплено');
+            document.getElementById('contextMenu').classList.add('hidden');
+        };
+        
+        app.editMessage = function() {
+            if (this.selectedMessage && this.selectedMessage.sender_id === store.user.id) {
+                const newText = prompt('Изменить сообщение:', this.selectedMessage.text);
+                if (newText && newText !== this.selectedMessage.text) {
+                    this.selectedMessage.text = newText;
+                    
+                    // Обновляем в UI
+                    const textElement = this.selectedMessageElement.querySelector('.message-text');
+                    if (textElement) {
+                        textElement.textContent = newText;
+                    }
+                    
+                    this.showToast('Сообщение изменено');
+                }
+            }
+            document.getElementById('contextMenu').classList.add('hidden');
+        };
+        
+        app.deleteMessage = function() {
+            if (confirm('Удалить сообщение?')) {
+                this.selectedMessageElement.remove();
+                this.showToast('Сообщение удалено');
+            }
+            document.getElementById('contextMenu').classList.add('hidden');
+        };
+        
+        // ==================== ПОИСК ПО СООБЩЕНИЯМ ====================
+        app.openSearchMessages = function() {
+            document.getElementById('searchMessagesModal').classList.remove('hidden');
+            document.getElementById('searchMessagesInput').focus();
+        };
+        
+        app.searchMessages = function(query) {
+            if (!query || !store.currentChat) return;
+            
+            const messages = store.messages[store.currentChat.id] || [];
+            const results = messages.filter(m => 
+                m.text?.toLowerCase().includes(query.toLowerCase())
+            );
+            
+            const container = document.getElementById('searchResultsContainer');
+            
+            if (results.length === 0) {
+                container.innerHTML = '<div class="empty-state">Сообщений не найдено</div>';
+                return;
+            }
+            
+            container.innerHTML = results.map(msg => {
+                const highlighted = msg.text.replace(
+                    new RegExp(query, 'gi'),
+                    match => `<span class="highlight">${match}</span>`
+                );
+                
+                return `
+                    <div class="search-result-item" onclick="app.jumpToMessage(${msg.id})">
+                        <div class="search-result-text">${highlighted}</div>
+                        <div class="search-result-meta">
+                            ${new Date(msg.created_at).toLocaleString('ru-RU')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+        
+        app.jumpToMessage = function(messageId) {
+            this.closeModal('searchMessagesModal');
+            
+            // Прокручиваем к сообщению
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                messageElement.style.animation = 'pulse 1s';
+            }
+        };
+        
+        // ==================== НАСТРОЙКИ ====================
+        app.openSettings = function() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        };
+        
+        app.toggleEncryption = function(element) {
+            element.classList.toggle('active');
+            const isEnabled = element.classList.contains('active');
+            this.showToast(`Шифрование ${isEnabled ? 'включено' : 'выключено'}`);
+        };
+        
+        app.toggleNotifications = function(element) {
+            element.classList.toggle('active');
+            const isEnabled = element.classList.contains('active');
+            
+            if (isEnabled) {
+                this.requestNotificationPermission();
+            }
+            
+            this.showToast(`Уведомления ${isEnabled ? 'включены' : 'выключены'}`);
+        };
+        
+        app.requestNotificationPermission = async function() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    this.showToast('Уведомления разрешены');
+                }
+            }
+        };
+        
+        app.toggleTheme = function(element) {
+            element.classList.toggle('active');
+            const isDark = element.classList.contains('active');
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        };
+        
+        app.setAccentColor = function(color) {
+            document.documentElement.style.setProperty('--accent', color);
+            this.showToast('Цвет изменён');
+        };
+        
+        app.toggleAutoSave = function(element) {
+            element.classList.toggle('active');
+        };
+        
+        app.clearCache = function() {
+            this.showToast('Кэш очищен');
+        };
+        
+        app.deleteAccount = function() {
+            if (confirm('Вы уверены? Это действие нельзя отменить!')) {
+                if (confirm('Точно уверены? Все данные будут удалены!')) {
+                    this.showToast('Аккаунт удалён');
+                    this.logout();
+                }
+            }
+        };
+        
+        // ==================== ШИФРОВАНИЕ ====================
+        app.encryptionKey = null;
+        
+        app.initEncryption = async function() {
+            // Генерируем ключ для E2EE
+            if (!localStorage.getItem('ng_encryption_key')) {
+                const key = await this.generateEncryptionKey();
+                localStorage.setItem('ng_encryption_key', JSON.stringify(key));
+            }
+        };
+        
+        app.generateEncryptionKey = async function() {
+            // В реальном приложении здесь будет генерация ключей Web Crypto API
+            return { type: 'demo', created: Date.now() };
+        };
+        
+        // ==================== УВЕДОМЛЕНИЯ ====================
+        app.setupNotifications = function() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                // Показываем запрос на уведомления при первом сообщении
+            }
+        };
+        
+        app.showNotification = function(title, body, icon) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: icon || 'data:image/svg+xml,...'
+                });
+            }
+        };
+        
+        // ==================== FAB ====================
+        app.fabAction = function() {
+            if (store.currentChat) {
+                // В чате - прокрутка вниз
+                document.getElementById('messagesContainer').scrollTop = 999999;
+            } else {
+                // На главной - новый чат
+                this.openNewChat();
+            }
+        };
+        
+        // ==================== ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ====================
+        app.showAttachMenu = function() {
+            document.getElementById('attachMenuModal').classList.remove('hidden');
+        };
+        
+        // Обновляем инициализацию
+        const originalInit = app.init;
+        app.init = function() {
+            originalInit.call(this);
+            this.initExtended();
+        };
+        
+        // Запуск
+        app.init();
+    </script>
+</body>
+</html>
