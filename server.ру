@@ -1,0 +1,155 @@
+from fastapi import FastAPI, WebSocket, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Boolean, or_
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from datetime import datetime, timedelta
+from jose import jwt
+from passlib.context import CryptContext
+import json
+import uvicorn
+import os
+
+SECRET_KEY = "nightgram_secret_2024"
+ALGORITHM = "HS256"
+DATABASE_URL = "sqlite:///./nightgram.db"
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True)
+    hashed_password = Column(String)
+    is_online = Column(Boolean, default=False)
+
+class Chat(Base):
+    __tablename__ = "chats"
+    id = Column(Integer, primary_key=True)
+    user1_id = Column(Integer, ForeignKey("users.id"))
+    user2_id = Column(Integer, ForeignKey("users.id"))
+
+class Message(Base):
+    __tablename__ = "messages"
+    id = Column(Integer, primary_key=True)
+    chat_id = Column(Integer, ForeignKey("chats.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    text = Column(String)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+Base.metadata.create_all(bind=engine)
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+
+app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.post("/register")
+async def register(username: str, password: str, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.username == username).first():
+        raise HTTPException(400, "Username exists")
+    user = User(username=username, hashed_password=pwd_context.hash(password))
+    db.add(user)
+    db.commit()
+    return {"message": "OK"}
+
+@app.post("/login")
+async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == form.username).first()
+    if not user or not pwd_context.verify(form.password, user.hashed_password):
+        raise HTTPException(401, "Invalid")
+    token = jwt.encode({"sub": user.username, "user_id": user.id, "exp": datetime.utcnow() + timedelta(days=30)}, SECRET_KEY)
+    return {"access_token": token, "token_type": "bearer", "user_id": user.id, "username": user.username}
+
+@app.get("/me")
+async def me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    user = db.query(User).filter(User.username == payload.get("sub")).first()
+    return {"id": user.id, "username": user.username}
+
+@app.get("/users")
+async def users(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    users = db.query(User).filter(User.username != payload.get("sub")).all()
+    return [{"id": u.id, "username": u.username, "is_online": u.is_online} for u in users]
+
+@app.get("/chats")
+async def chats(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    user = db.query(User).filter(User.username == payload.get("sub")).first()
+    chats = db.query(Chat).filter(or_(Chat.user1_id == user.id, Chat.user2_id == user.id)).all()
+    result = []
+    for c in chats:
+        p_id = c.user2_id if c.user1_id == user.id else c.user1_id
+        p = db.query(User).filter(User.id == p_id).first()
+        last = db.query(Message).filter(Message.chat_id == c.id).order_by(Message.created_at.desc()).first()
+        unread = db.query(Message).filter(Message.chat_id == c.id, Message.sender_id != user.id, Message.is_read == False).count()
+        result.append({"chat_id": c.id, "partner_username": p.username, "partner_online": p.is_online, "last_message": last.text if last else None, "unread_count": unread})
+    return result
+
+@app.post("/chats/create/{pid}")
+async def create_chat(pid: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    user = db.query(User).filter(User.username == payload.get("sub")).first()
+    chat = db.query(Chat).filter(or_((Chat.user1_id == user.id) & (Chat.user2_id == pid), (Chat.user1_id == pid) & (Chat.user2_id == user.id))).first()
+    if not chat:
+        chat = Chat(user1_id=user.id, user2_id=pid)
+        db.add(chat)
+        db.commit()
+        db.refresh(chat)
+    return {"chat_id": chat.id}
+
+@app.get("/messages/{cid}")
+async def messages(cid: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    msgs = db.query(Message).filter(Message.chat_id == cid).order_by(Message.created_at).all()
+    return [{"id": m.id, "text": m.text, "sender_id": m.sender_id, "created_at": m.created_at.isoformat()} for m in msgs]
+
+class WSManager:
+    def __init__(self):
+        self.conn = {}
+    async def connect(self, uid, ws):
+        await ws.accept()
+        self.conn[uid] = ws
+    def disconnect(self, uid):
+        if uid in self.conn: del self.conn[uid]
+    async def send(self, uid, msg):
+        if uid in self.conn: await self.conn[uid].send_text(msg)
+
+wsm = WSManager()
+
+@app.websocket("/ws")
+async def ws_endpoint(ws: WebSocket, token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user = SessionLocal().query(User).filter(User.username == payload.get("sub")).first()
+        await wsm.connect(user.id, ws)
+        while True:
+            data = await ws.receive_text()
+            msg = json.loads(data)
+            if msg.get("type") == "message":
+                db = SessionLocal()
+                chat = db.query(Chat).filter(Chat.id == msg["chat_id"]).first()
+                if chat:
+                    new_msg = Message(chat_id=msg["chat_id"], sender_id=user.id, text=msg["text"])
+                    db.add(new_msg)
+                    db.commit()
+                    rid = chat.user2_id if chat.user1_id == user.id else chat.user1_id
+                    await wsm.send(rid, json.dumps({"type": "message", "chat_id": msg["chat_id"], "message": {"text": msg["text"]}}))
+                db.close()
+    except:
+        pass
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
